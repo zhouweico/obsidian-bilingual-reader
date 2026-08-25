@@ -1,0 +1,44 @@
+name: Release Obsidian Plugin
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches manifest version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # 用 jq 精确取顶层 .version：grep '"version"' 会匹配到任何含该字符串的行，
+          # 一旦 manifest 里出现嵌套或描述性的 version 字段就会取错值。
+          MANIFEST_VERSION=$(jq -r '.version' manifest.json)
+          echo "tag=$TAG manifest=$MANIFEST_VERSION"
+          if [ "$TAG" != "$MANIFEST_VERSION" ]; then
+            echo "::error::Tag ($TAG) does not match manifest.json version ($MANIFEST_VERSION)"
+            exit 1
+          fi
+          # versions.json 是 Obsidian 用于按 App 版本分发的映射表，缺失对应条目会导致旧版客户端拿不到更新
+          if ! jq -e --arg v "$MANIFEST_VERSION" 'has($v)' versions.json > /dev/null; then
+            echo "::error::versions.json is missing an entry for $MANIFEST_VERSION"
+            exit 1
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            manifest.json main.js styles.css

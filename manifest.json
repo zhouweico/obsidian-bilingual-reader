@@ -1,0 +1,10 @@
+{
+  "id": "bilingual-reader",
+  "name": "译读",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "一键把当前笔记译为指定语言，原文永不改动。生成左右对照与上下对照两种副本，生成后自动左右分屏；支持 Google / DeepL / OpenAI 兼容 LLM，可配置多厂商与多目标语言。",
+  "author": "zhouwei",
+  "authorUrl": "https://github.com/zhouweico",
+  "isDesktopOnly": false
+}
