@@ -67,7 +67,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            manifest.json main.js styles.css
+          # 发布说明优先取 .github/release-notes/<tag>.md；缺失时退回 GitHub 自动生成的变更列表。
+          NOTES=".github/release-notes/$TAG.md"
+          if [ -f "$NOTES" ]; then
+            echo "使用 $NOTES 作为发布说明"
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$NOTES" \
+              manifest.json main.js styles.css
+          else
+            echo "未找到 $NOTES，使用自动生成的发布说明"
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              manifest.json main.js styles.css
+          fi
