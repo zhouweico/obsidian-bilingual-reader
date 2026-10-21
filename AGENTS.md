@@ -6,15 +6,15 @@
 
 Obsidian 社区插件，**没有构建步骤**：`main.js` 就是源码，没有 `package.json`、`node_modules`、打包器和依赖。运行时只 `require('obsidian')`。
 
-| 文件 | 职责 |
-|---|---|
-| `manifest.json` | 插件元数据，**版本号与名称的唯一事实源** |
-| `versions.json` | 插件版本 → 最低 Obsidian 版本映射 |
-| `main.js` | 全部逻辑，单文件 CommonJS |
-| `styles.css` | 目前为空壳（原生组件渲染，不注入样式） |
-| `README.md` | 用户文档，保持精简，不写开发者内容 |
-| `.github/workflows/release.yml` | 校验 + 签发 attestation + 建 release |
-| `.github/release-notes/<tag>.md` | 发布说明，存在即作为 release body |
+| 文件                               | 职责                              |
+| -------------------------------- | ------------------------------- |
+| `manifest.json`                  | 插件元数据，**版本号与名称的唯一事实源**          |
+| `versions.json`                  | 插件版本 → 最低 Obsidian 版本映射         |
+| `main.js`                        | 全部逻辑，单文件 CommonJS               |
+| `styles.css`                     | 目前为空壳（原生组件渲染，不注入样式）             |
+| `README.md`                      | 用户文档，保持精简，不写开发者内容               |
+| `.github/workflows/release.yml`  | 校验 + 签发 attestation + 建 release |
+| `.github/release-notes/<tag>.md` | 发布说明，存在即作为 release body         |
 
 ## 改完必须跑的检查
 
@@ -26,17 +26,17 @@ node --check main.js
 
 以下任一条不满足，社区目录自动审核或 CI 会直接拒绝。
 
-| 约束 | 原因 |
-|---|---|
-| `manifest.name` 只能用 Basic Latin 字符 | 目录不接受非拉丁名称（全库 9200+ 插件中 CJK 名称为 0） |
-| `manifest.id` 只能小写字母与连字符，不得含 `obsidian` | 目录校验，且改动会导致用户插件目录失效 |
-| `description` 以英文句点 `.` 结尾、≤250 字符、无 emoji | 目录校验；中文句号「。」不通过 |
-| 版本三处一致：`manifest.version`、`versions.json` 的键、Git tag | CI 校验，不一致拒绝发布 |
-| 改工作流必须打进 tag 所在提交 | 发布执行的是 tag 上的 workflow，不是 main 的最新版 |
-| `data.json` 绝不入库 | 内含用户 API Key，已在 `.gitignore` |
-| 不设默认热键 | Obsidian 审查项；默认热键易与用户配置冲突 |
-| 不用正则 lookbehind | iOS 16.4 以下 Safari 不支持，而 `isDesktopOnly: false` |
-| 不硬编码颜色与样式 | 需跟随主题；样式走 CSS 变量 |
+| 约束                                                   | 原因                                              |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| `manifest.name` 只能用 Basic Latin 字符                   | 目录不接受非拉丁名称（全库 9200+ 插件中 CJK 名称为 0）              |
+| `manifest.id` 只能小写字母与连字符，不得含 `obsidian`              | 目录校验，且改动会导致用户插件目录失效                             |
+| `description` 以英文句点 `.` 结尾、≤250 字符、无 emoji           | 目录校验；中文句号「。」不通过                                 |
+| 版本三处一致：`manifest.version`、`versions.json` 的键、Git tag | CI 校验，不一致拒绝发布                                   |
+| 改工作流必须打进 tag 所在提交                                    | 发布执行的是 tag 上的 workflow，不是 main 的最新版             |
+| `data.json` 绝不入库                                     | 内含用户 API Key，已在 `.gitignore`                    |
+| 不设默认热键                                               | Obsidian 审查项；默认热键易与用户配置冲突                       |
+| 不用正则 lookbehind                                      | iOS 16.4 以下 Safari 不支持，而 `isDesktopOnly: false` |
+| 不硬编码颜色与样式                                            | 需跟随主题；样式走 CSS 变量                                |
 
 ## 代码约定
 
@@ -49,7 +49,7 @@ node --check main.js
 
 ## 不要做
 
-- 不提交 `.obsidian/`、`data.json`、`.workbuddy/`、编辑器配置
+- 不提交 `.obsidian/`、`data.json`，以及任何 AI 工具或编辑器的本机目录与缓存
 - 不为了临时需求改 `manifest.id` / `name`（牵动目录条目与用户安装路径）
 - 不往 README 里加开发者内容（安装路径、命令清单、贡献流程都曾因此被删）
 - 不自动 push 到 main、不打 tag、不发 release：分支提交供评审可以，合并与发版必须维护者确认
