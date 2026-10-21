@@ -1,7 +1,7 @@
 {
   "id": "bilingual-reader",
   "name": "Bilingual Reader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.4.0",
   "description": "Translate the active note into one of 11 languages and open a side-by-side copy, leaving the original untouched. Works with Google, DeepL, and any OpenAI-compatible LLM.",
   "author": "zhouwei",

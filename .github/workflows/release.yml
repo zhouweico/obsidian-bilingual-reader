@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: write
+  # artifact attestation 需要 OIDC 令牌签发来源证明；缺这两个权限 attest 步骤会直接失败。
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -48,6 +51,16 @@ jobs:
           case "$ID" in *obsidian*) echo "::error::id must not contain 'obsidian'"; exit 1 ;; esac
           case "$NAME" in *[!\ -~]*) echo "::error::name must use Basic Latin characters only"; exit 1 ;; esac
           case "$DESC" in *.) ;; *) echo "::error::description must end with a period"; exit 1 ;; esac
+
+      # 社区目录的 Releases 检查会把「缺 artifact attestation」标为 Recommendation。
+      # 必须先签发再上传：attestation 按文件摘要绑定，与上传顺序无关，但社区目录只认发布时的资产摘要。
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Create release
         env:
