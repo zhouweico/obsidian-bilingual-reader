@@ -38,7 +38,7 @@ const PRESET_PROVIDER = {
   name: 'DeepSeek',
   endpoint: 'https://api.deepseek.com',
   key: '',
-  model: 'deepseek-v4-flash',
+  model: 'deepseek-flash',
   thinking: false,
 };
 
@@ -731,7 +731,7 @@ class BilingualSettingTab extends PluginSettingTab {
           t.inputEl.type = 'password'; // 不明文显示 Key，避免录屏/共享屏幕时泄露
           t.inputEl.autocomplete = 'off';
         });
-      new Setting(c).setName('模型').setDesc('如 deepseek-v4-flash / gpt-4o / qwen-plus / ...')
+      new Setting(c).setName('模型').setDesc('如 deepseek-flash / gpt-4o / qwen-plus / ...')
         .addText((t) => t.setValue(p.model).onChange((v) => { p.model = v.trim(); save(); }));
       new Setting(c).setName('开启推理 thinking').setDesc('仅部分厂商支持（DeepSeek V4 系、阿里云 qwen 系）；关闭（默认）可大幅提速降耗')
         .addToggle((t) => t.setValue(!!p.thinking).onChange((v) => { p.thinking = v; save(); }));

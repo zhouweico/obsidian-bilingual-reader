@@ -74,13 +74,13 @@ Obsidian 里堆着的英文资料——论文、文档、newsletter——读起�
 
 ### LLM（默认）
 
-首次启用时已预置一个 DeepSeek 厂商：Endpoint `https://api.deepseek.com`、模型 `deepseek-v4-flash`，**填上 API Key 即可使用**。
+首次启用时已预置一个 DeepSeek 厂商：Endpoint `https://api.deepseek.com`、模型 `deepseek-flash`，**填上 API Key 即可使用**。
 
 - **Endpoint** 填 OpenAI 兼容的基地址（插件自动拼接 `/chat/completions`，结尾多余的斜杠会被去掉）
 - 可添加任意兼容服务：OpenAI、OpenRouter、阿里云百炼、本机 Ollama / vLLM 等
 - 有多个厂商时，用 **默认 LLM 厂商（用于翻译）** 指定默认项；在 **编辑厂商配置** 里下拉选择后，用「+ 添加厂商」/「- 删除当前」增删（至少保留一个）
 - **开启推理 thinking** 默认关闭。只有支持该字段的厂商（DeepSeek V4 系、通义千问系）才需要打开，开了会明显变慢、变贵
-- **模型** 填厂商侧的模型名，如 `deepseek-v4-flash`、`gpt-4o`、`qwen-plus`
+- **模型** 填厂商侧的模型名，如 `deepseek-flash`、`gpt-4o`、`qwen-plus`
 
 ### Google
 
