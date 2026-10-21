@@ -1,9 +1,9 @@
 {
   "id": "bilingual-reader",
-  "name": "译读",
-  "version": "0.1.0",
-  "minAppVersion": "0.15.0",
-  "description": "一键把当前笔记译为指定语言，原文永不改动。生成左右对照与上下对照两种副本，生成后自动左右分屏；支持 Google / DeepL / OpenAI 兼容 LLM，可配置多厂商与多目标语言。",
+  "name": "Bilingual Reader",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Translate the active note into one of 11 languages and open a side-by-side copy, leaving the original untouched. Works with Google, DeepL, and any OpenAI-compatible LLM.",
   "author": "zhouwei",
   "authorUrl": "https://github.com/zhouweico",
   "isDesktopOnly": false

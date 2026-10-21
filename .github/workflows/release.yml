@@ -15,7 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify tag matches manifest version
+      - name: Verify sources
+        run: |
+          node --check main.js
+          for f in manifest.json main.js styles.css versions.json; do
+            test -s "$f" || { echo "::error::$f is missing or empty"; exit 1; }
+          done
+
+      - name: Verify manifest and tag
         env:
           TAG: ${{ github.ref_name }}
         run: |
@@ -32,6 +39,15 @@ jobs:
             echo "::error::versions.json is missing an entry for $MANIFEST_VERSION"
             exit 1
           fi
+          # 社区目录硬性规则：id 只能用小写字母与连字符且不含 obsidian；
+          # name 必须是 Basic Latin（全库 9200+ 插件无一 CJK 名称）；description 必须以英文句点结尾。
+          ID=$(jq -r '.id' manifest.json)
+          NAME=$(jq -r '.name' manifest.json)
+          DESC=$(jq -r '.description' manifest.json)
+          echo "$ID" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::id must be lowercase letters and hyphens only"; exit 1; }
+          case "$ID" in *obsidian*) echo "::error::id must not contain 'obsidian'"; exit 1 ;; esac
+          case "$NAME" in *[!\ -~]*) echo "::error::name must use Basic Latin characters only"; exit 1 ;; esac
+          case "$DESC" in *.) ;; *) echo "::error::description must end with a period"; exit 1 ;; esac
 
       - name: Create release
         env:

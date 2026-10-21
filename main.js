@@ -10,7 +10,7 @@
  *   - 多 LLM 厂商：可配置多个 OpenAI 兼容厂商 / 模型，选择默认厂商，运行时可切换。
  */
 
-const { Plugin, Notice, requestUrl, TFile, PluginSettingTab, Setting, SuggestModal } = require('obsidian');
+const { Plugin, Notice, requestUrl, TFile, PluginSettingTab, Setting, SuggestModal, normalizePath } = require('obsidian');
 
 // ribbon 图标沿用 Obsidian 内置 Lucide 图标集中的 languages（笔画 + A 的翻译通用符号），
 // 无需自定义 SVG，描边与圆角天然与其他图标一致，且自动适配深色模式与各类主题。
@@ -266,7 +266,12 @@ async function viaLlm(text, lp, targetLabel) {
       { role: 'user', content: text },
     ],
   };
-  if (lp.thinking) body.enable_thinking = true;
+  // 推理开关厂商字段不统一：阿里云 qwen 系用 enable_thinking，DeepSeek V4 系用 thinking.type。
+  // 同时下发两个字段（都是 OpenAI 之外的扩展字段，不支持的厂商会忽略），避免用户不知道该开哪个。
+  if (lp.thinking) {
+    body.enable_thinking = true;
+    body.thinking = { type: 'enabled' };
+  }
   const res = await requestWithRetry({
     url: lp.endpoint.replace(/\/+$/, '') + '/chat/completions', method: 'POST',
     headers: { Authorization: 'Bearer ' + lp.key, 'Content-Type': 'application/json' },
@@ -296,10 +301,22 @@ function hardSplit(text, max) {
   return out;
 }
 
+// 中英文句末标点后切分，保留标点本身。
+// 不用 lookbehind（/(?<=[。！？；.!?;])\s*/）：lookbehind 在 iOS 16.4 以下的 Safari 上不被支持，
+// 而本插件 isDesktopOnly=false，移动端必须能跑，故改为逐字符扫描，语义等价且无兼容性风险。
+const SENTENCE_END = '。！？；.!?;';
+
 function splitBySentence(text, max) {
   if (text.length <= max) return [text];
-  // 在中英文句末标点后切分，保留标点本身
-  const sentences = text.split(/(?<=[。！？；.!?;])\s*/);
+  const sentences = [];
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (SENTENCE_END.indexOf(text[i]) !== -1) {
+      sentences.push(text.slice(start, i + 1));
+      start = i + 1;
+    }
+  }
+  if (start < text.length) sentences.push(text.slice(start));
   const out = [];
   let cur = '';
   for (const sentence of sentences) {
@@ -501,11 +518,12 @@ module.exports = class BilingualReader extends Plugin {
 
     this.addRibbonIcon(RIBBON_ICON, '译读（原文不动，左右分屏）', () => this.run({ mode: this.settings.mode }));
 
+    // 不设默认热键：默认热键容易和用户已有配置或其他插件冲突，且很难挑到跨平台都空闲的组合。
+    // 需要的用户可在 设置 → 快捷键 里自行绑定。
     this.addCommand({
       id: 'translate-bilingual',
       name: '译读（左右分屏）',
       callback: () => this.run({ mode: this.settings.mode }),
-      hotkeys: [{ modifiers: ['Mod', 'Alt'], key: 'b' }],
     });
     this.addCommand({
       id: 'translate-zh-only',
@@ -531,15 +549,29 @@ module.exports = class BilingualReader extends Plugin {
   }
 
   async writeFile(path, content) {
-    const ex = this.app.vault.getAbstractFileByPath(path);
-    if (ex instanceof TFile) { await this.app.vault.modify(ex, content); return ex; }
-    return await this.app.vault.create(path, content);
+    // normalizePath 会把重复斜杠、反斜杠、首尾斜杠规整掉，跨平台建文件才不会出现非法路径。
+    const p = normalizePath(path);
+    const ex = this.app.vault.getAbstractFileByPath(p);
+    if (ex instanceof TFile) {
+      // 已存在时用 process 原子写入，避免和用户或其他插件同时改这个文件时互相覆盖。
+      await this.app.vault.process(ex, () => content);
+      return ex;
+    }
+    return await this.app.vault.create(p, content);
   }
 
   async run(opts) {
     const s = this.settings;
     const file = this.app.workspace.getActiveFile();
     if (!file) { new Notice('没有打开的笔记，请先打开要翻译的英文笔记'); return; }
+
+    // 译文副本后缀：中文=zh，其余=语言键（ja/en/fr…），上下对照面恒为 .bilingual。
+    const suf = fileSuffix(s.targetLang);
+    // 拦住「对译文副本再翻一次」：否则会产出 xxx.zh.zh.md / xxx.bilingual.bilingual.md 这类垃圾文件。
+    if (file.basename.endsWith('.bilingual') || file.basename.endsWith('.' + suf)) {
+      new Notice('当前笔记（' + file.basename + '）已是译文副本，请对原文执行译读', 8000);
+      return;
+    }
 
     const lp = s.provider === 'llm' ? getProvider(s, opts && opts.providerId) : null;
     if (s.provider === 'llm' && (!lp || !lp.key)) {
@@ -586,7 +618,6 @@ module.exports = class BilingualReader extends Plugin {
       const transNote = solid.map((r) => r.translated).join('\n\n');
       const biNote = solid.map((r) => r.original + '\n\n' + r.translated).join('\n\n');
       const srcLink = '[[' + base + '|原文]]'; // 首行相对链接，点击跳回原文笔记
-      const suf = fileSuffix(s.targetLang); // 译文文件后缀：中文=zh，其余=语言键(ja/en/fr…)
 
       let transFile = null, biFile = null;
       if (mode === 'zh') {
@@ -598,13 +629,14 @@ module.exports = class BilingualReader extends Plugin {
         biFile = await this.writeFile(dir + base + '.bilingual.md', srcLink + '\n\n' + biNote);
       }
 
-      // 主动左右分屏：左原文 / 右译文
-      // 用 splitActiveLeaf('vertical') —— 'vertical' 在 Obsidian 中表示新窗格出现在右侧（左右并排）。
-      // getLeaf('vertical') 的 'vertical' 不是合法 PaneType，会退化为普通标签页，无法分屏。
-      const openState = fileOpenState(s, this.app.workspace.activeLeaf);
+      // 主动左右分屏：左原文 / 右译文。
+      // 用 getLeaf('split', 'vertical')：第二个参数 'vertical' 表示新窗格出现在右侧（左右并排）。
+      // 不用已废弃的 splitActiveLeaf()/activeLeaf——getLeaf('vertical') 把 'vertical' 当 PaneType
+      // 是站不住的写法（PaneType 只有 tab/split/window），会退化成普通标签页而分不出屏。
+      const srcLeaf = this.app.workspace.getMostRecentLeaf(); // 原文所在叶，替代已废弃的 activeLeaf
+      const openState = fileOpenState(s, srcLeaf);
       if (s.autoSplit && transFile) {
-        const srcLeaf = this.app.workspace.activeLeaf; // 当前活动叶（显示原文）
-        const newLeaf = this.app.workspace.splitActiveLeaf('vertical'); // 右侧新列
+        const newLeaf = this.app.workspace.getLeaf('split', 'vertical'); // 右侧新列
         await newLeaf.openFile(transFile, { active: false, state: openState }); // 译文按 openMode 打开
         if (srcLeaf) this.app.workspace.setActiveLeaf(srcLeaf); // 焦点回到左原文
       } else if (transFile) {
@@ -648,7 +680,11 @@ class BilingualSettingTab extends PluginSettingTab {
       });
 
     if (s.provider === 'deepl') {
-      new Setting(c).setName('DeepL API Key').addText((t) => t.setValue(s.deeplKey).onChange((v) => { s.deeplKey = v.trim(); save(); }));
+      new Setting(c).setName('DeepL API Key').addText((t) => {
+        t.setValue(s.deeplKey).onChange((v) => { s.deeplKey = v.trim(); save(); });
+        t.inputEl.type = 'password'; // 不明文显示 Key，避免录屏/共享屏幕时泄露
+        t.inputEl.autocomplete = 'off';
+      });
       new Setting(c).setName('DeepL Pro 账户').setDesc('付费版打开（用 api.deepl.com）')
         .addToggle((t) => t.setValue(s.deeplPro).onChange((v) => { s.deeplPro = v; save(); }));
     }
@@ -690,10 +726,14 @@ class BilingualSettingTab extends PluginSettingTab {
       new Setting(c).setName('Endpoint').setDesc('OpenAI 兼容 /chat/completions 基地址，如 https://api.deepseek.com（勿带末尾斜杠）')
         .addText((t) => t.setValue(p.endpoint).onChange((v) => { p.endpoint = v.trim(); save(); }));
       new Setting(c).setName('API Key').setDesc('仅存于本库 data.json，不随源码/笔记外泄')
-        .addText((t) => t.setValue(p.key).onChange((v) => { p.key = v.trim(); save(); }));
+        .addText((t) => {
+          t.setValue(p.key).onChange((v) => { p.key = v.trim(); save(); });
+          t.inputEl.type = 'password'; // 不明文显示 Key，避免录屏/共享屏幕时泄露
+          t.inputEl.autocomplete = 'off';
+        });
       new Setting(c).setName('模型').setDesc('如 deepseek-v4-flash / gpt-4o / qwen-plus / ...')
         .addText((t) => t.setValue(p.model).onChange((v) => { p.model = v.trim(); save(); }));
-      new Setting(c).setName('开启推理 thinking').setDesc('仅部分厂商（如阿里云 qwen）支持时生效；关闭（默认）可大幅提速降耗')
+      new Setting(c).setName('开启推理 thinking').setDesc('仅部分厂商支持（DeepSeek V4 系、阿里云 qwen 系）；关闭（默认）可大幅提速降耗')
         .addToggle((t) => t.setValue(!!p.thinking).onChange((v) => { p.thinking = v; save(); }));
     }
 
